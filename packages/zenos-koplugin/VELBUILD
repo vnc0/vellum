@@ -1,0 +1,60 @@
+maintainer="vnc0 <23381635+vnc0@users.noreply.github.com>"
+pkgname=zenos-koplugin
+pkgver=4.3.2
+pkgrel=0
+upstream_author="xZenLabs"
+category="apps"
+pkgdesc="ZenOS plugin for KOReader: clean home screen, library, controls panel and reader tools"
+url="https://github.com/xZenLabs/zen-os"
+arch="noarch"
+license="GPL-3.0-only"
+depends="koreader>=2026.03"
+readmeurl="https://raw.githubusercontent.com/$upstream_author/zen-os/v$pkgver/README.md"
+source="
+$pkgname-$pkgver.tar.gz::https://github.com/$upstream_author/zen-os/archive/refs/tags/v$pkgver.tar.gz
+"
+options="!check !fhs"
+
+unpack() {
+	tar -xzf "$srcdir"/$pkgname-$pkgver.tar.gz -C "$srcdir"
+}
+
+package() {
+	_plugins=/home/root/xovi/exthome/appload/koreader/plugins
+	_src="$srcdir"/zen-os-$pkgver
+	_dest="$pkgdir"$_plugins/zenos.koplugin
+
+	install -d "$pkgdir"$_plugins
+	cp -r "$_src" "$_dest"
+
+	# Keep only the files upstream ships in its zenos.koplugin.zip
+	cd "$_dest"
+	rm -rf .git .github .vscode dist spec docs icon-packs .venv _includes _config.yml
+	find . -name '__pycache__' -prune -exec rm -rf {} +
+	find . \( -name '*.yml' -o -name '*.py' -o -name '*.zip' -o -name '*.luarocks' \) -delete
+	find . -name '.*' ! -name . -prune -exec rm -rf {} +
+	find . -name '*.sh' ! -path './modules/global/kindle_restore_screen.sh' -delete
+	find . -name '*.md' ! -path './LICENSE.md' \
+		! -path './modules/filebrowser/metadata/LICENSES.md' -delete
+	find images -type f ! -name ornate-cover-frame.svg -delete
+	find . -type d -empty -delete
+
+	install -Dm644 "$_src"/LICENSE.md \
+		"$pkgdir"/home/root/.vellum/licenses/$pkgname/LICENSE
+	echo "https://github.com/$upstream_author/zen-os/archive/refs/tags/v$pkgver.tar.gz" > \
+		"$pkgdir"/home/root/.vellum/licenses/$pkgname/SOURCES
+}
+
+postdeinstall() {
+	if [ "$VELLUM_PURGE" = "1" ]; then
+		_koreader=/home/root/xovi/exthome/appload/koreader
+		rm -rf "$_koreader"/plugins/zenos.koplugin \
+			"$_koreader"/settings/ZenOS \
+			"$_koreader"/settings/docprops_cache.sqlite* \
+			"$_koreader"/cache/zen-i18n-*.lua \
+			"$_koreader"/cache/zen-opds-covers
+	fi
+}
+
+sha512sums='0528eba05d3086ad3db2ac49a7e349769ae1af86d1d7fec1f6dcae935ee398e575d2b249c31196011adabb6018ef1f51ac90b74906293ec70f44c9c3e16a7cb2
+zenos-koplugin-4.3.2.tar.gz'
