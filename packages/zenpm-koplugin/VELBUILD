@@ -1,0 +1,94 @@
+maintainer="vnc0 <23381635+vnc0@users.noreply.github.com>"
+pkgname=zenpm-koplugin
+pkgver=1.7.3
+pkgrel=0
+upstream_author="xZenLabs"
+category="apps"
+pkgdesc="ZenPM plugin for KOReader: browse, install and update packages from repositories"
+url="https://github.com/xZenLabs/zen-pm"
+arch="aarch64 armv7"
+license="GPL-3.0-only"
+depends="koreader>=2026.03"
+readmeurl="https://raw.githubusercontent.com/$upstream_author/zen-pm/v$pkgver/README.md"
+source="
+$pkgname-$pkgver.tar.gz::https://github.com/$upstream_author/zen-pm/archive/refs/tags/v$pkgver.tar.gz
+"
+builddir="$srcdir"/zen-pm-$pkgver
+options="!check !fhs"
+
+image="ghcr.io/toltec-dev/golang:v4.0"
+
+build() {
+	apt-get update
+	apt-get install -y --no-install-recommends python3-fonttools
+
+	case "$CARCH" in
+	aarch64) _goarch="arm64" _goarm="" ;;
+	armv7) _goarch="arm" _goarm="7" ;;
+	*)
+		echo "Invalid CARCH: $CARCH"
+		exit 1
+		;;
+	esac
+
+	cd "$builddir"
+
+	# go.mod requires a newer Go than the build image ships
+	GOOS=linux GOARCH="$_goarch" GOARM="$_goarm" CGO_ENABLED=0 GOTOOLCHAIN=auto \
+		go build -trimpath -buildvcs=false \
+		-ldflags="-s -w -buildid= -X main.version=$pkgver" \
+		-o build/zenpm ./cmd/zenpm
+
+	# Subset the Nerd Font to the glyphs the plugin uses, like upstream's build.sh
+	_plugin=frontend/koreader/zenpm.koplugin
+	sed -n '/^local nerd_icons = {$/,/^}/s/.*\\u{\([0-9A-Fa-f][0-9A-Fa-f]*\)}.*/U+\1/p' \
+		$_plugin/ui/inline_icon_map.lua > build/unicodes.txt
+	python3 -m fontTools.subset $_plugin/fonts/SymbolsNerdFont-Regular.ttf \
+		--unicodes-file=build/unicodes.txt \
+		--output-file=build/ZenPMSymbolsNerdFont-Regular.ttf \
+		--drop-tables+=PfEd \
+		--name-IDs='*' \
+		--name-languages='*'
+}
+
+package() {
+	_dest="$pkgdir"/home/root/xovi/exthome/appload/koreader/plugins/zenpm.koplugin
+	_plugin=frontend/koreader/zenpm.koplugin
+
+	install -d "$_dest"
+	cp -r $_plugin/. "$_dest"
+
+	find "$_dest" -type d \( -name '__pycache__' -o -name 'test' -o -name 'tests' \) \
+		-prune -exec rm -rf {} +
+	find "$_dest" -type f \( -name '*.py' -o -name '*.pyc' -o -name '*.pyo' \) -delete
+	rm -rf "$_dest"/backend "$_dest"/fonts/SymbolsNerdFont-Regular.ttf
+
+	install -Dm644 build/ZenPMSymbolsNerdFont-Regular.ttf \
+		"$_dest"/fonts/ZenPMSymbolsNerdFont-Regular.ttf
+	install -Dm644 VERSION "$_dest"/VERSION
+	install -Dm644 VERSION "$_dest"/backend/VERSION
+
+	# On the reMarkable the plugin looks for backend/zenpm-hf (armv7) or
+	# backend/zenpm-linux-arm64 (aarch64)
+	case "$CARCH" in
+	aarch64) _backend=zenpm-linux-arm64 ;;
+	armv7) _backend=zenpm-hf ;;
+	esac
+	install -Dm755 build/zenpm "$_dest"/backend/$_backend
+
+	install -Dm644 LICENSE \
+		"$pkgdir"/home/root/.vellum/licenses/$pkgname/LICENSE
+	echo "https://github.com/$upstream_author/zen-pm/archive/refs/tags/v$pkgver.tar.gz" > \
+		"$pkgdir"/home/root/.vellum/licenses/$pkgname/SOURCES
+}
+
+postdeinstall() {
+	if [ "$VELLUM_PURGE" = "1" ]; then
+		_koreader=/home/root/xovi/exthome/appload/koreader
+		rm -rf "$_koreader"/plugins/zenpm.koplugin \
+			"$_koreader"/settings/ZenPM
+	fi
+}
+
+sha512sums='6abf5216d77decd44c1b8e6060e4235e43fa1e6d8301d4180e3208cf6831e7a581320ede89e35143c55f3b7e21f8ba5f0b002ab5072cd3fe4026dc713adec728
+zenpm-koplugin-1.7.3.tar.gz'
