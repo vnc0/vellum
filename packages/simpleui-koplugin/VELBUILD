@@ -1,0 +1,48 @@
+maintainer="vnc0 <23381635+vnc0@users.noreply.github.com>"
+pkgname=simpleui-koplugin
+pkgver=3.0.3
+pkgrel=0
+upstream_author="doctorhetfield-cmd"
+category="apps"
+pkgdesc="SimpleUI plugin for KOReader: home screen, navigation bar, status bar and reading stats"
+url="https://github.com/doctorhetfield-cmd/simpleui.koplugin"
+arch="noarch"
+license="GPL-3.0-only"
+depends="koreader>=2026.03"
+readmeurl="https://raw.githubusercontent.com/$upstream_author/simpleui.koplugin/$pkgver/README.md"
+source="
+$pkgname-$pkgver.tar.gz::https://github.com/$upstream_author/simpleui.koplugin/archive/refs/tags/$pkgver.tar.gz
+"
+options="!check !fhs"
+
+unpack() {
+	tar -xzf "$srcdir"/$pkgname-$pkgver.tar.gz -C "$srcdir"
+}
+
+package() {
+	_plugins=/home/root/xovi/exthome/appload/koreader/plugins
+	install -d "$pkgdir"$_plugins
+	cp -r "$srcdir"/simpleui.koplugin-$pkgver "$pkgdir"$_plugins/simpleui.koplugin
+	rm -rf "$pkgdir"$_plugins/simpleui.koplugin/.github \
+		"$pkgdir"$_plugins/simpleui.koplugin/.gitignore \
+		"$pkgdir"$_plugins/simpleui.koplugin/scripts \
+		"$pkgdir"$_plugins/simpleui.koplugin/CONTRIBUTING.md \
+		"$pkgdir"$_plugins/simpleui.koplugin/README.md
+
+	install -Dm644 "$srcdir"/simpleui.koplugin-$pkgver/LICENSE \
+		"$pkgdir"/home/root/.vellum/licenses/$pkgname/LICENSE
+	echo "https://github.com/$upstream_author/simpleui.koplugin/archive/refs/tags/$pkgver.tar.gz" > \
+		"$pkgdir"/home/root/.vellum/licenses/$pkgname/SOURCES
+}
+
+postdeinstall() {
+	if [ "$VELLUM_PURGE" = "1" ]; then
+		_koreader=/home/root/xovi/exthome/appload/koreader
+		rm -rf "$_koreader"/plugins/simpleui.koplugin \
+			"$_koreader"/settings/simpleui \
+			"$_koreader"/cache/simpleui_library_textmeta.dat
+	fi
+}
+
+sha512sums='2f36549fd2ee10cb0beb0e73233791b630f6776fc56519afec6c745c81d76d5081b6982035ab9b3c138f4acb9d89ec9f05d79ce1640705fc10e82bd02065984d
+simpleui-koplugin-3.0.3.tar.gz'
